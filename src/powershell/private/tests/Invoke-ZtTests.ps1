@@ -38,7 +38,10 @@
 		$Pillar = 'All',
 
 		[int]
-		$ThrottleLimit = 5
+		$ThrottleLimit = 5,
+
+		[string]
+		$LogsPath
 	)
 
 	# Get Tenant Type (AAD = Workforce, CIAM = EEID)
@@ -61,7 +64,7 @@
 		$testsToRun = $testsToRun | Where-Object { $_.Pillar -in $stablePillars }
 	}
 
-	# Separate Sync Tests (Compliance/ExchangeOnline/SharePointOnline) from Parallel Tests
+	# Separate Sync Tests (Compliance/ExchangeOnline/SharePointOnline) from Parallel Tests (because of DLL order to manage in runspaces & remoting into WPS)
 	$syncTestIds = @($testsToRun | Where-Object { $_.Pillar -eq 'Data' } | Select-Object -ExpandProperty TestId)
 	$syncTests = $testsToRun | Where-Object { $_.TestId -in $syncTestIds }
 	$parallelTests = $testsToRun | Where-Object { $_.TestId -notin $syncTestIds }
@@ -70,12 +73,12 @@
 	try {
 		# Run Sync Tests in the main thread
 		foreach ($test in $syncTests) {
-			Invoke-ZtTest -Test $test -Database $Database
+			Invoke-ZtTest -Test $test -Database $Database -LogsPath $LogsPath
 		}
 
 		# Run Parallel Tests
 		if ($parallelTests) {
-			$workflow = Start-ZtTestExecution -Tests $parallelTests -DbPath $Database.Database -ThrottleLimit $ThrottleLimit
+			$workflow = Start-ZtTestExecution -Tests $parallelTests -DbPath $Database.Database -ThrottleLimit $ThrottleLimit -LogsPath $LogsPath
 			Wait-ZtTest -Workflow $workflow
 		}
 	}
