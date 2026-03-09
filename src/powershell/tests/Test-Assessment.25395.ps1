@@ -19,17 +19,19 @@ function Test-Assessment-25395 {
     [ZtTest(
         Category = 'Global Secure Access',
         ImplementationCost = 'High',
-        MinimumLicense = 'Entra_Premium_Private_Access',
+        MinimumLicense = ('Entra_Premium_Private_Access'),
         Pillar = 'Network',
         RiskLevel = 'High',
         SfiPillar = 'Protect networks',
-        TenantType = 'Workforce',
+        TenantType = ('Workforce'),
         TestId = 25395,
         Title = 'Private Access application segments enforce least-privilege access',
         UserImpact = 'Medium'
     )]
     [CmdletBinding()]
-    param()
+    param(
+        $Database
+    )
 
     # Active Directory well-known ports
     $AD_WELL_KNOWN_PORTS = @('53','88','135','389','445','464','636','3268','3269')
@@ -152,21 +154,57 @@ function Test-Assessment-25395 {
     Write-ZtProgress -Activity $activity -Status 'Querying applications'
 
     # Query Q1: List all Private Access enterprise applications
-    try {
-        $apps = Invoke-ZtGraphRequest -RelativeUri "applications?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,displayName,appId,tags" -ApiVersion beta -ErrorAction Stop
+    $apps = $null
+    if ($Database) {
+        Write-PSFMessage 'Querying database for Private Access applications' -Tag Test -Level VeryVerbose
+        try {
+            $sql = @"
+SELECT id, appId, displayName, tags
+FROM Application
+WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
+"@
+            $apps = @(Invoke-DatabaseQuery -Database $Database -Sql $sql -AsCustomObject)
+        }
+        catch {
+            Write-PSFMessage "Database query failed: $_" -Tag Test -Level Warning
+            $apps = $null
+        }
     }
-    catch {
-        Write-PSFMessage -Level Warning -Message "Failed to retrieve Private Access applications: $_"
-        $apps = $null
+    else {
+        try {
+            $apps = Invoke-ZtGraphRequest -RelativeUri "applications?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,displayName,appId,tags" -ApiVersion beta -ErrorAction Stop
+        }
+        catch {
+            Write-PSFMessage -Level Warning -Message "Failed to retrieve Private Access applications: $_"
+            $apps = $null
+        }
     }
 
     # Query Q2: Retrieve service principals with Custom Security Attributes
-    try {
-        $servicePrincipals = Invoke-ZtGraphRequest -RelativeUri "servicePrincipals?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,appId,displayName,customSecurityAttributes&`$count=true" -ApiVersion beta -ConsistencyLevel eventual -ErrorAction Stop
+    $servicePrincipals = @()
+    if ($Database) {
+        Write-PSFMessage 'Querying database for service principals' -Tag Test -Level VeryVerbose
+        try {
+            $sql = @"
+SELECT id, appId, displayName, customSecurityAttributes
+FROM ServicePrincipal
+WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
+"@
+            $servicePrincipals = @(Invoke-DatabaseQuery -Database $Database -Sql $sql -AsCustomObject)
+        }
+        catch {
+            Write-PSFMessage "Database query for service principals failed: $_" -Tag Test -Level Warning
+            $servicePrincipals = @()
+        }
     }
-    catch {
-        Write-PSFMessage -Level Warning -Message "Failed to retrieve service principals: $_"
-        $servicePrincipals = @()
+    else {
+        try {
+            $servicePrincipals = Invoke-ZtGraphRequest -RelativeUri "servicePrincipals?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,appId,displayName,customSecurityAttributes&`$count=true" -ApiVersion beta -ConsistencyLevel eventual -ErrorAction Stop
+        }
+        catch {
+            Write-PSFMessage -Level Warning -Message "Failed to retrieve service principals: $_"
+            $servicePrincipals = @()
+        }
     }
 
     # Query Q3: Retrieve enabled Conditional Access policies
