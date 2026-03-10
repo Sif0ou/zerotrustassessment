@@ -164,15 +164,20 @@ FROM Application
 WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
 "@
             $apps = @(Invoke-DatabaseQuery -Database $Database -Sql $sql -AsCustomObject)
+            Write-PSFMessage "Found $($apps.Count) Private Access application(s) from database" -Tag Test -Level VeryVerbose
         }
         catch {
             Write-PSFMessage "Database query failed: $_" -Tag Test -Level Warning
             $apps = $null
         }
     }
-    else {
+
+    # Fallback to Graph API if database returned nothing or no database provided
+    if (-not $apps -or $apps.Count -eq 0) {
+        Write-PSFMessage 'Falling back to Graph API for Private Access applications' -Tag Test -Level VeryVerbose
         try {
             $apps = Invoke-ZtGraphRequest -RelativeUri "applications?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,displayName,appId,tags" -ApiVersion beta -ErrorAction Stop
+            Write-PSFMessage "Found $($apps.Count) Private Access application(s) from Graph API" -Tag Test -Level VeryVerbose
         }
         catch {
             Write-PSFMessage -Level Warning -Message "Failed to retrieve Private Access applications: $_"
@@ -191,15 +196,20 @@ FROM ServicePrincipal
 WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
 "@
             $servicePrincipals = @(Invoke-DatabaseQuery -Database $Database -Sql $sql -AsCustomObject)
+            Write-PSFMessage "Found $($servicePrincipals.Count) service principal(s) from database" -Tag Test -Level VeryVerbose
         }
         catch {
             Write-PSFMessage "Database query for service principals failed: $_" -Tag Test -Level Warning
             $servicePrincipals = @()
         }
     }
-    else {
+
+    # Fallback to Graph API if database returned nothing or no database provided
+    if (-not $servicePrincipals -or $servicePrincipals.Count -eq 0) {
+        Write-PSFMessage 'Falling back to Graph API for service principals' -Tag Test -Level VeryVerbose
         try {
             $servicePrincipals = Invoke-ZtGraphRequest -RelativeUri "servicePrincipals?`$filter=tags/any(t:t eq 'PrivateAccessNonWebApplication')&`$select=id,appId,displayName,customSecurityAttributes&`$count=true" -ApiVersion beta -ConsistencyLevel eventual -ErrorAction Stop
+            Write-PSFMessage "Found $($servicePrincipals.Count) service principal(s) from Graph API" -Tag Test -Level VeryVerbose
         }
         catch {
             Write-PSFMessage -Level Warning -Message "Failed to retrieve service principals: $_"
@@ -429,7 +439,9 @@ WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
             $appLink = $portalLinkAppTemplate -f $r.AppId
             $linkedAppName = "[{0}]({1})" -f (Get-SafeMarkdown $r.AppName), $appLink
             $hasCSAText = if ($r.HasCSA) {'Yes'} else {'No'}
-            $tableRows += "| $linkedAppName | $($r.SegmentType) | $($r.SegmentScope) | $hasCSAText | $($r.Status) |`n"
+            $segmentTypeSafe = Get-SafeMarkdown $r.SegmentType
+            $segmentScopeSafe = Get-SafeMarkdown $r.SegmentScope
+            $tableRows += "| $linkedAppName | $segmentTypeSafe | $segmentScopeSafe | $hasCSAText | $($r.Status) |`n"
         }
         $mdInfo += $formatTemplate -f $portalLinkAppList, $tableRows
     }
@@ -448,7 +460,10 @@ WHERE list_contains(tags, 'PrivateAccessNonWebApplication')
         foreach ($f in $segmentFindings) {
             $appLink = $portalLinkAppTemplate -f $f.AppId
             $linkedAppName = "[{0}]({1})" -f (Get-SafeMarkdown $f.AppName), $appLink
-            $tableRows += "| $linkedAppName | $($f.Issue) | $($f.Destination) | $($f.Ports) | Narrow destination and ports |`n"
+            $issueSafe = Get-SafeMarkdown $f.Issue
+            $destSafe = Get-SafeMarkdown $f.Destination
+            $portsSafe = Get-SafeMarkdown $f.Ports
+            $tableRows += "| $linkedAppName | $issueSafe | $destSafe | $portsSafe | Narrow destination and ports |`n"
         }
         $mdInfo += $formatTemplate -f $tableRows
     }

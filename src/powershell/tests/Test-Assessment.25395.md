@@ -4,8 +4,6 @@ With visibility into the network topology, they can escalate privileges by targe
 
 This approach aligns with the Zero Trust "verify explicitly" principle by ensuring each access request is evaluated against the specific security requirements of the target application rather than applying uniform policies to broad network segments.
 
-**Investigate**: Private Access applications are missing Custom Security Attributes, have CA policies using applicationFilter that require manual review, or no per-app Private Access applications are configured.
-
 **Remediation action**
 - [Transition from Quick Access](https://learn.microsoft.com/en-us/entra/global-secure-access/how-to-configure-per-app-access) to per-app Private Access by creating individual Global Secure Access enterprise applications with specific FQDNs, IP addresses, and ports for each private resource.
 - [Use Application Discovery](https://learn.microsoft.com/en-us/entra/global-secure-access/how-to-application-discovery) to identify which resources users access through Quick Access, then create targeted Private Access apps for those resources.
@@ -14,8 +12,8 @@ This approach aligns with the Zero Trust "verify explicitly" principle by ensuri
 - [Create Conditional Access policies using application filters](https://learn.microsoft.com/en-us/entra/identity/conditional-access/concept-filter-for-applications) to target Private Access apps based on their Custom Security Attributes, enforcing granular controls like MFA or device compliance.
 - [Apply Conditional Access policies to Private Access](https://learn.microsoft.com/en-us/entra/global-secure-access/how-to-target-resource-private-access-apps) apps from within Global Secure Access for streamlined configuration.
 
-Review
-- [Zero Trust network segmentation guidance for software-defined perimeters](https://learn.microsoft.com/en-us/security/zero-trust/deploy/networks#1-network-segmentation-and-software-defined-perimeters). 
+**Review**
+- [Zero Trust network segmentation guidance for software-defined perimeters](https://learn.microsoft.com/en-us/security/zero-trust/deploy/networks#1-network-segmentation-and-software-defined-perimeters) 
 
 
 <!--- Results --->
